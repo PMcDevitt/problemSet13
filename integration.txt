@@ -1,0 +1,224 @@
+express students_api
+cd students_api && npm installmkdir -p test/integration
+touch test/integration/students_test.jsmkdir -p test/integration
+touch test/integration/students_test.js
+
+npm install --save-dev mocha chai supertest
+
+
+mkdir -p test/integration
+touch test/integration/students_test.js
+
+// in test/integration/students_test.js
+var request = require('supertest')
+var app = require('../../app')
+
+describe('GET /students', function () {
+  it('routes correctly', function (done) {
+    request(app).get('/students')
+      .expect(200, done)
+  })
+})
+
+touch routes/students.js
+
+// in routes.students.js
+var router = require('express').Router()
+
+router.get('/', function (req, res) {
+  res.json()
+})
+
+module.exports = router
+
+// in app.js
+
+
+mkdir -p test/integration
+touch test/integration/students_test.js
+
+// in test/integration/students_test.js
+var request = require('supertest')
+var app = require('../../app')
+
+describe('GET /students', function () {
+  it('routes correctly', function (done) {
+    request(app).get('/students')
+      .expect(200, done)
+  })
+})
+
+touch routes/students.js
+
+// in routes.students.js
+var router = require('express').Router()
+
+router.get('/', function (req, res) {
+  res.json()
+})
+
+module.exports = router
+
+// in app.js
+var studentsRoutes = require('./routes/students')
+
+app.use('/students', studentsRoutes)
+
+// at CLI
+npm install --save monk cfenv mongodb@1.4
+
+// at CLI
+touch test/mocha.opts
+
+// in test/mocha.opts
+--require test/helper
+--recursive
+
+var studentsRoutes = require('./routes/students')
+
+app.use('/students', studentsRoutes)
+
+// at CLI
+npm install --save monk cfenv mongodb@1.4
+
+// at CLI
+touch test/mocha.opts
+
+// in test/mocha.opts
+--require test/helper
+--recursive
+
+// at CLI
+touch test/helper.js
+
+// in test/helper.js
+process.env.NODE_ENV = 'test'
+global.expect = require('chai').expect
+
+// at CLI
+mkdir config
+touch config/pcf_app_env.js
+
+// in config/pcf_app_env.js
+var cfenv = require("cfenv")
+
+var localOptions = {
+  vcap : {
+    services: {
+      "mongo-p": [
+        {
+          "name": "mongo-development",
+          "credentials": {
+            "uri": "mongodb://localhost:27017/students_api_development_development"
+          }
+        },
+        {
+          "name": "mongo-test",
+          "credentials": {
+            "uri": "mongodb://localhost:27017/students_api_test"
+          }
+        }
+      ]
+    }
+  }
+}
+
+module.exports = cfenv.getAppEnv(localOptions)
+
+// at CLI
+touch config/database.js
+
+// in config/database.js
+var monk = require('monk')
+var pcfVars = require('./pcf_app_env')
+
+var env = process.env.NODE_ENV || 'development'
+var serviceName = process.env.DB_SERVICE_NAME || "mongo-" + env
+
+module.exports = monk(pcfVars.getService(serviceName).credentials.uri)
+
+============================================================
+		Integration/file_test.js
+============================================================
+var request = require('supertest')
+var db = require('../../config/database')
+var app = require('../../app')
+
+var studentsCollection = db.get('students')
+
+describe('students', function () {
+  beforeEach(function (done) {
+    studentsCollection.remove({}, function (err) {
+      if (err) done(err)
+      done()
+    })
+  })
+
+  after(function (done) {
+    studentsCollection.remove({}, function (err) {
+      if (err) done(err)
+      done()
+    })
+  })
+
+  describe('GET /students', function () {
+    it('responds with a 200 status code', function (done) {
+      request(app).get('/students')
+        .expect(200, done)
+    })
+
+    it('returns an array of JSON objects representing students in the database', function (done) {
+      // ugly way to have test data, we could make a factory for this:
+      var student1 = {
+        firstName: 'First',
+        lastName: 'Student',
+        level: 6
+      }
+
+      var student2 = {
+        firstName: 'Second',
+        lastName: 'Pupil',
+        level: 10
+      }
+
+      studentsCollection.insert([student1, student2], function (err, students) {
+        if (err) done(err)
+
+        request(app).get('/students')
+          .expect(function (response) {
+            expect(response.body).to.be.instanceOf(Array)
+
+            expect(response.body[0].firstName).to.equal(student1.firstName)
+            expect(response.body[0].lastName).to.equal(student1.lastName)
+            expect(response.body[0].level).to.equal(student1.level)
+
+            expect(response.body[1].firstName).to.equal(student2.firstName)
+            expect(response.body[1].lastName).to.equal(student2.lastName)
+            expect(response.body[1].level).to.equal(student2.level)
+          })
+          .end(done)
+        })
+    })
+  })
+})
+========================================================
+		Router Page
+========================================================
+var router = require('express').Router()
+var db = require('../config/database')
+
+router.get('/', function (req, res) {
+  db.get('students').find({}, function (err, docs) {
+    if (err) throw err
+
+    res.json(docs)
+  })
+})
+
+router.post('/', function (req, res) {
+  db.get('students').insert(req.body, function (err, persistedStudent) {
+    res.json(persistedStudent)
+  })
+})
+
+module.exports = router
